@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="../static/style_login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="icon" href="../static/images/Newstetic_logo.png" type="image/x-icon">
+</head>
+<body>
+    <div class="login-container">
+        <img src="../static/images/Newstetic_logo.png" alt="Logo_Newstetic" class="logo">
+
+        <h1>Iniciar Sesión</h1>
+        <form method="POST" id="loginForm">
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" name="username" id="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <div class="password-container">
+                    <input type="password" name="password" id="password" required>
+                    <i class="fas fa-eye-slash" id="togglePassword"></i>
+                </div>
+            </div>
+            <button type="submit">Ingresar</button>
+        </form>
+        <div id="loading" class="loading">
+            <div class="progress-text loading-pulse">Iniciando sesión...</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-percentage" id="progressPercentage">0%</div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="messages" id="flashMessages">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </div>
+    <script>
+        const togglePassword = document.querySelector('#togglePassword');
+        const password = document.querySelector('#password');
+        
+        togglePassword.addEventListener('click', function (e) {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        const loginForm = document.getElementById('loginForm');
+        const loading = document.getElementById('loading');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const progressText = document.querySelector('.progress-text');
+
+        // Función para auto-ocultar mensajes flash
+        function autoHideFlashMessages() {
+            const flashMessages = document.getElementById('flashMessages');
+            if (flashMessages) {
+                // Mostrar el mensaje con animación
+                flashMessages.style.opacity = '1';
+                flashMessages.style.transform = 'translateY(0)';
+                
+                // Ocultar después de 2 segundos
+                setTimeout(() => {
+                    flashMessages.style.opacity = '0';
+                    flashMessages.style.transform = 'translateY(-10px)';
+                    
+                    // Remover completamente después de la animación
+                    setTimeout(() => {
+                        flashMessages.remove();
+                    }, 300);
+                }, 2000);
+            }
+        }
+
+        // Ejecutar al cargar la página
+        document.addEventListener('DOMContentLoaded', autoHideFlashMessages);
+
+        // Función para simular el progreso de carga
+        function startProgressAnimation() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                if (progress < 20) {
+                    progress += Math.random() * 5; // Progreso más lento al inicio
+                    progressText.textContent = 'Validando credenciales...';
+                } else if (progress < 50) {
+                    progress += Math.random() * 8;
+                    progressText.textContent = 'Conectando con el servidor...';
+                } else if (progress < 80) {
+                    progress += Math.random() * 10;
+                    progressText.textContent = 'Verificando permisos...';
+                } else if (progress < 95) {
+                    progress += Math.random() * 5;
+                    progressText.textContent = 'Redirigiendo...';
+                } else {
+                    progress = Math.min(progress + 1, 100);
+                    progressText.textContent = 'Completado!';
+                }
+
+                // Actualizar la barra de progreso y el porcentaje
+                progressBar.style.width = progress + '%';
+                progressPercentage.textContent = Math.round(progress) + '%';
+
+                // Si llega al 100%, limpiar el intervalo
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    // Opcional: agregar un pequeño delay antes de continuar
+                    setTimeout(() => {
+                        // Aquí puedes agregar lógica adicional si es necesario
+                    }, 500);
+                }
+            }, 100); // Actualizar cada 100ms
+
+            return interval;
+        }
+
+        loginForm.addEventListener('submit', function() {
+            loading.style.display = 'block';
+            startProgressAnimation();
+        });
+    </script>
+</body>
+</html>
