@@ -578,16 +578,14 @@ function showTraceModal(order) {
         },
         {
             titulo: 'Preparación',
-            fecha: order.fecha_preparacion || order.fecha_preparacion_de_pedido || 
-                order.fecha_preparacion_pedido || order.fecha_ts_aprobacion ||
-                order["Fecha Preparacion de pedido"],
+            fecha: order['Fecha Preparacion de pedido'] || order.fecha_preparacion || order.fecha_preparacion_de_pedido,
             icono: 'fas fa-box-open',
             descripcion: 'Pedido en preparación',
             mensajePendiente: 'Pendiente de preparación'
         },
         {
             titulo: 'Picking',
-            fecha: order.fecha_picking || order["Fecha picking"] || order["fecha picking"],
+            fecha: order['Fecha picking'] || order.fecha_picking,
             icono: 'fas fa-people-carry',
             descripcion: 'Proceso de picking completado',
             mensajePendiente: 'Pendiente de picking',
@@ -595,15 +593,14 @@ function showTraceModal(order) {
         },
         {
             titulo: 'Alistamiento',
-            fecha: order.fecha_de_alistamiento || order.fecha_alistamiento || 
-                order["Fecha de alistamiento"] || order["fecha de alistamiento"],
+            fecha: order['Fecha picking'] || order.fecha_picking,
             icono: 'fas fa-dolly',
             descripcion: 'Pedido alistado para despacho',
             mensajePendiente: 'Pendiente de alistamiento'
         },
         {
             titulo: 'Despacho',
-            fecha: order.fecha_despacho || order["Fecha_Despacho"],
+            fecha: order['Fecha de despacho de Pedido'] || order.fecha_despacho,
             icono: 'fas fa-shipping-fast',
             descripcion: 'Pedido despachado al cliente',
             mensajePendiente: 'No se ha despachado'
@@ -622,7 +619,11 @@ function showTraceModal(order) {
         let tieneFecha = false;
         let fecha = estado.mensajePendiente;
 
-        if (estado.fecha && estado.fecha !== 'No disponible') {
+        // Si la fecha es 'Completado' (para Picking/Alistamiento), marcar como completado
+        if (estado.fecha === 'Completado') {
+            tieneFecha = true;
+            fecha = 'Completado';
+        } else if (estado.fecha && estado.fecha !== 'No disponible' && estado.fecha !== '') {
             try {
                 const fechaObj = new Date(estado.fecha);
                 if (!isNaN(fechaObj.getTime())) {

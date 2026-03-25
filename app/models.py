@@ -39,29 +39,29 @@ class OrderInfo:
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> 'OrderInfo':
         info = OrderInfo(
-            guia=data.get('Guia', ''),
-            transportadora=data.get('Transportador', ''),
-            cliente=data.get('Razon social cliente', ''),
-            numero_pedido=data.get('Numero de pedido', ''),
-            numero_factura=data.get('Numero de factura', ''),
-            linea=data.get('LINEA', ''),
-            grupo=data.get('GRUPO', ''),
-            subgrupo=data.get('SUBGRUPO', ''),
-            cantidad=data.get('Cantidad', ''),
-            fecha_despacho=data.get('Fecha_Despacho', ''),  # Campo general
-            fecha_despacho_cedi=data.get('Fecha de despacho de Pedido', ''),  # Campo específico del CEDI
-            fecha_picking=data.get('Fecha_Picking', ''),
-            razon_social_vendedor=data.get('Razon social vendedor', ''),
-            fecha_preparacion=data.get('Fecha Preparacion de pedido', ''),
-            estado_documento=data.get('Estado del documento', ''),
-            ruta=data.get('RUTA', ''),
-            fecha_de_alistamiento=data.get('Fecha de alistamiento', ''),
-            fecha_aprobacion_cartera=data.get('Fecha aprobacion Cartera', ''),
-            fecha_entrega=data.get('Fecha de entrega de Pedido', ''),
-            estado_transportadora=data.get('Estado transportadora', ''),
+            guia=data.get('guia') or data.get('Guia', ''),
+            transportadora=data.get('transportadora') or data.get('Transportador', ''),
+            cliente=data.get('cliente') or data.get('Razon social cliente', ''),
+            numero_pedido=data.get('numero_pedido') or data.get('Numero de pedido', ''),
+            numero_factura=data.get('numero_factura') or data.get('Numero de factura', ''),
+            linea=data.get('linea') or data.get('LINEA', ''),
+            grupo=data.get('grupo') or data.get('GRUPO', ''),
+            subgrupo=data.get('subgrupo') or data.get('SUBGRUPO', ''),
+            cantidad=data.get('cantidad') or data.get('Cantidad', ''),
+            fecha_despacho=data.get('fecha_despacho') or data.get('Fecha de despacho de Pedido', ''),
+            fecha_despacho_cedi=data.get('fecha_despacho_cedi') or data.get('Fecha de despacho de Pedido', ''),
+            fecha_picking=data.get('fecha_picking') or data.get('Fecha picking', ''),
+            razon_social_vendedor=data.get('vendedor') or data.get('Razon social vendedor', ''),
+            fecha_preparacion=data.get('fecha_preparacion_pedido') or data.get('Fecha Preparacion de pedido', ''),
+            estado_documento=data.get('estado_documento') or data.get('Estado del documento', ''),
+            ruta=data.get('ruta') or data.get('RUTA', ''),
+            fecha_de_alistamiento=data.get('fecha_de_alistamiento') or data.get('Fecha de alistamiento', ''),
+            fecha_aprobacion_cartera=data.get('fecha_aprobacion_cartera') or data.get('Fecha aprobacion Cartera', ''),
+            fecha_entrega=data.get('fecha_entrega') or data.get('Fecha de entrega de Pedido', ''),
+            estado_transportadora=data.get('estado_transportadora') or data.get('Estado transportadora', ''),
             Ciudad_Despacho=data.get('Ciudad_Despacho', ''),
             Direccion_Despacho=data.get('Direccion_Despacho', ''),
             numero_de_picking=data.get('numero_de_picking', '')
         )
-        info.fecha_registro_pedido = data.get('Fecha Registro de pedido', '')
+        info.fecha_registro_pedido = data.get('fecha_registro_pedido') or data.get('Fecha Registro de pedido', '')
         return info

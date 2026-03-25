@@ -1,4 +1,5 @@
 import logging
+import sys
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.auth import authenticate_user 
 from app.Conexion_Sql import DatabaseConnection
@@ -8,6 +9,27 @@ from app.queries_unified import get_unified_orders
 from app.queries_unified_vendedores import get_unified_orders_vendedores
 from functools import lru_cache
 import time
+
+# Configurar logger para DEBUG
+debug_logger = logging.getLogger('TRACKING_DEBUG')
+debug_logger.setLevel(logging.DEBUG)
+
+# Handler para archivo
+file_handler = logging.FileHandler('tracking_debug.log', encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# Handler para consola
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+console_formatter = logging.Formatter('[%(levelname)s] %(message)s')
+console_handler.setFormatter(console_formatter)
+
+# Agregar handlers
+if not debug_logger.handlers:
+    debug_logger.addHandler(file_handler)
+    debug_logger.addHandler(console_handler)
 import requests
 from datetime import datetime
 import uuid
@@ -95,6 +117,19 @@ main = Blueprint('main', __name__)
 
 def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None, transportadora=None, pedido=None, vendedor=None, estado=None, is_vendedor=False, limit=10, offset=0, factura=None):
     try:
+        # DEBUG: Mostrar al inicio de función
+        print("\n" + "="*100)
+        print("FETCH_COMBINED_DATA LLAMADA")
+        print("="*100)
+        print(f"Parámetros recibidos:")
+        print(f"  is_vendedor: {is_vendedor}")
+        print(f"  vendedor: {vendedor}")
+        print(f"  pedido: {pedido}")
+        print(f"  cliente: {cliente}")
+        print(f"  factura: {factura}")
+        print(f"  limit: {limit}, offset: {offset}")
+        print("="*100 + "\n")
+        
         # cache_key = get_cache_key(start_date, end_date, guia, cliente, transportadora, pedido, vendedor, is_vendedor, factura, referencia)
         
         # if cache_key in cache:
@@ -177,44 +212,71 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
         if is_vendedor:
             db_connection = DatabaseConnection('SGV_BKGENERICABASE1')
             
+            print(f"\n>>> EJECUTANDO QUERY VENDEDORES...")
+            
             # Obtener conteo primero
             count_query = get_unified_orders_vendedores(vendedor, cliente, pedido, factura, estado, count_only=True)
             count_result = db_connection.execute_query(count_query)
             total_count = count_result[0]['total_count'] if count_result else 0
             
+            print(f">>> Total de registros encontrados: {total_count}")
+            
             # Luego obtener datos paginados
             query = get_unified_orders_vendedores(vendedor, cliente, pedido, factura, estado, limit, offset)
             unified_data = db_connection.execute_query(query)
+            
+            print(f">>> Registros retornados en esta página: {len(unified_data) if unified_data else 0}")
+            if unified_data:
+                print(f">>> Claves del primer registro: {list(unified_data[0].keys())}")
+                print(f">>> Valores del primer registro:")
+                for key, value in list(unified_data[0].items())[:10]:  # Mostrar primeros 10 campos
+                    print(f"    {key}: {value}")
+            
+            # DEBUG: Imprimir todos los datos retornados de la BD
+            print("="*100)
+            print("DATOS RETORNADOS DEL QUERY VENDEDORES:")
+            print("="*100)
+            if unified_data:
+                print(f"Cantidad de registros: {len(unified_data)}")
+                print("-"*100)
+                for idx, item in enumerate(unified_data):
+                    print(f"\nREGISTRO {idx + 1}:")
+                    print(f"Claves disponibles: {list(item.keys())}")
+                    print("-"*50)
+                    for key, value in item.items():
+                        print(f"  {key}: {value}")
+            else:
+                print("NO HAY DATOS")
+            print("="*100)
             
             # Transformar los datos al formato que espera la aplicación
             all_combined_data = []
             for item in unified_data:
                 order_data = {
-                    'Guia': item.get('Guia', 'Sin guía'),
-                    'Transportador': item.get('Transportador', 'Sin transportador'),
-                    'Razon social cliente': item.get('Razon social cliente', 'Desconocido'),
-                    'Numero de pedido': item.get('Numero de pedido', ''),
-                    'Numero de factura': item.get('Numero de factura', ''),
-                    'LINEA': item.get('LINEA', ''),
-                    'GRUPO': item.get('GRUPO', ''),
-                    'SUBGRUPO': item.get('SUBGRUPO', ''),
-                    'Cantidad': item.get('Cantidad', ''),
-                    'Fecha_Despacho': item.get('Fecha_Despacho', 'Pendiente'),
-                    'Fecha_Picking': item.get('Fecha picking', 'Pendiente'),
-                    'Fecha de alistamiento': item.get('Fecha de alistamiento', 'Pendiente'),
-                    'Fecha aprobacion Cartera': item.get('Fecha aprobacion Cartera', 'Pendiente'),
-                    'Razon social vendedor': item.get('Razon social vendedor', 'Desconocido'),
-                    'Fecha Preparacion de pedido': item.get('Fecha Preparacion de pedido', 'Pendiente'),
-                    'Estado del documento': item.get('Estado del documento', ''),
-                    'Fecha Registro de pedido': item.get('Fecha Registro de pedido', ''),
-                    'Extencion del item': item.get('Extencion del item', ''),
-                    'RUTA': item.get('RUTA', item.get('Transportador', '')),
-                    'Keypedido': item.get('Keypedido', ''),
-                    'Fecha de entrega de Pedido': item.get('Fecha de entrega de Pedido', ''),  # Nuevo campo
-                    'Estado transportadora': item.get('Estado transportadora', ''),  # Nuevo campo
+                    'guia': item.get('Guia', 'Sin guía'),
+                    'transportadora': item.get('Transportador', 'Sin transportador'),
+                    'cliente': item.get('Razon social cliente', 'Desconocido'),
+                    'numero_pedido': item.get('Numero de pedido', ''),
+                    'numero_factura': item.get('Numero de factura', ''),
+                    'linea': item.get('LINEA', ''),
+                    'grupo': item.get('GRUPO', ''),
+                    'subgrupo': item.get('SUBGRUPO', ''),
+                    'cantidad': item.get('Cantidad', ''),
+                    'fecha_despacho': item.get('Fecha de despacho de Pedido') or '',
+                    'fecha_picking': item.get('Fecha picking') or '',
+                    'fecha_preparacion_pedido': item.get('Fecha Preparacion de pedido') or '',
+                    'fecha_aprobacion_cartera': item.get('Fecha aprobacion Cartera') or '',
+                    'vendedor': item.get('Razon social vendedor', 'Desconocido'),
+                    'estado_documento': item.get('Estado del documento', ''),
+                    'fecha_registro_pedido': item.get('Fecha Registro de pedido', ''),
+                    'extencion_item': item.get('Extencion del item', ''),
+                    'ruta': item.get('RUTA', item.get('Transportador', '')),
+                    'numero_pedido_clave': item.get('Keypedido', ''),
+                    'fecha_entrega': item.get('Fecha de entrega de Pedido') or '',
+                    'estado_transportadora': item.get('Estado transportadora', ''),
                     'Ciudad_Despacho': item.get('Ciudad_Despacho', ''),
                     'Direccion_Despacho': item.get('Direccion_Despacho', ''),
-                    'numero_de_picking': item.get('numero_de_picking', '')
+                    'numero_de_picking': item.get('numero_de_picking', 0)
                     
                 }
                 
@@ -227,14 +289,37 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
             # Para el dashboard principal, usamos el nuevo query unificado
             db_connection = DatabaseConnection('SGV_BKGENERICABASE1')  # Usamos esta conexión porque la mayoría de las tablas están ahí
             
+            print(f"\n>>> EJECUTANDO QUERY DASHBOARD GENERAL...")
+            
             # Obtener el conteo total primero
             count_query = get_unified_orders(start_date, end_date, guia, cliente, transportadora, pedido, vendedor, estado, None, None, count_only=True)
             count_result = db_connection.execute_query(count_query)
             total_count = count_result[0]['total_count'] if count_result else 0
             
+            print(f">>> Total de registros encontrados: {total_count}")
+            
             # Luego obtener datos paginados
             query = get_unified_orders(start_date, end_date, guia, cliente, transportadora, pedido, vendedor, estado, limit, offset)
             unified_data = db_connection.execute_query(query)
+            
+            print(f">>> Registros retornados en esta página: {len(unified_data) if unified_data else 0}")
+            
+            # DEBUG: Imprimir todos los datos retornados de la BD
+            print("="*100)
+            print("DATOS RETORNADOS DEL QUERY DASHBOARD (GENERAL):")
+            print("="*100)
+            if unified_data:
+                print(f"Cantidad de registros: {len(unified_data)}")
+                print("-"*100)
+                for idx, item in enumerate(unified_data[:1]):  # Solo mostrar el primer registro completo
+                    print(f"\nREGISTRO {idx + 1}:")
+                    print(f"Claves disponibles: {list(item.keys())}")
+                    print("-"*50)
+                    for key, value in item.items():
+                        print(f"  {key}: {value}")
+            else:
+                print("NO HAY DATOS")
+            print("="*100)
             
             # Transformar los datos al formato que espera la aplicación
             all_combined_data = []
@@ -249,22 +334,21 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
                     'GRUPO': '',  # No está en el nuevo query
                     'SUBGRUPO': '',  # No está en el nuevo query
                     'Cantidad': item.get('Cantidad', ''),
-                    'Fecha_Despacho': item.get('Fecha_Despacho', 'Pendiente'),
-                    'Fecha_Picking': item.get('Fecha picking', 'Pendiente'),
-                    'Fecha de alistamiento': item.get('Fecha de alistamiento', 'Pendiente'),
-                    'Fecha aprobacion Cartera': item.get('Fecha aprobacion Cartera', 'Pendiente'),
+                    'Fecha de despacho de Pedido': item.get('Fecha de despacho de Pedido') or '',
+                    'Fecha picking': item.get('Fecha picking') or '',
+                    'Fecha Preparacion de pedido': item.get('Fecha Preparacion de pedido') or '',
+                    'Fecha aprobacion Cartera': item.get('Fecha aprobacion Cartera') or '',
                     'Razon social vendedor': item.get('Razon social vendedor', 'Desconocido'),
-                    'Fecha Preparacion de pedido': item.get('Fecha Preparacion de pedido', 'Pendiente'),
                     'Estado del documento': item.get('Estado del documento', ''),
                     'Fecha Registro de pedido': item.get('Fecha Registro de pedido', ''),
                     'Extencion del item': item.get('Extencion del item', ''),
                     'RUTA': item.get('RUTA', item.get('Transportador', '')),
                     'Keypedido': item.get('Keypedido', ''),
-                    'Fecha de entrega de Pedido': item.get('Fecha de entrega de Pedido', ''),  # Nuevo campo
-                    'Estado transportadora': item.get('Estado transportadora', ''),  # Nuevo campo
+                    'Fecha de entrega de Pedido': item.get('Fecha de entrega de Pedido') or '',
+                    'Estado transportadora': item.get('Estado transportadora', ''),
                     'Ciudad_Despacho': item.get('Ciudad_Despacho', ''),
                     'Direccion_Despacho': item.get('Direccion_Despacho', ''),
-                    'numero_de_picking': item.get('numero_de_picking', '')
+                    'numero_de_picking': item.get('numero_de_picking', 0)
                 }
                 
                 order_info = OrderInfo.from_dict(order_data)

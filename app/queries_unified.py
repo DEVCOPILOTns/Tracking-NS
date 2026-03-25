@@ -3,6 +3,35 @@ def get_unified_orders(
     guia=None, cliente=None, transportadora=None, pedido=None,
     vendedor=None, estado=None, limit=None, offset=None, count_only=False
 ):
+    # Debug output
+    import sys
+    debug_msg = f"""
+╔════════════════════════════════════════════════════════════════════════════╗
+║ GET_UNIFIED_ORDERS INICIADO                                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+Parámetros recibidos:
+  - start_date: {start_date}
+  - end_date: {end_date}
+  - guia: {guia}
+  - cliente: {cliente}
+  - transportadora: {transportadora}
+  - pedido: {pedido}
+  - vendedor: {vendedor}
+  - estado: {estado}
+  - limit: {limit}
+  - offset: {offset}
+  - count_only: {count_only}
+"""
+    sys.stdout.write(debug_msg)
+    sys.stdout.flush()
+    
+    # Si las fechas son None, usar valores por defecto (últimos 90 días)
+    from datetime import datetime, timedelta
+    if start_date is None or end_date is None:
+        today = datetime.today()
+        end_date = today.strftime('%Y-%m-%d')
+        start_date = (today - timedelta(days=90)).strftime('%Y-%m-%d')
+    
     # Construcción de filtros textuales (se mantienen como los usas hoy)
     where_clauses = [
         f"CONVERT(date, t430.f430_fecha_ts_creacion) BETWEEN '{start_date}' AND '{end_date}'",
@@ -69,42 +98,39 @@ def get_unified_orders(
     ),
     cedi_clean AS (
         SELECT 
-            CAST(LTRIM(RTRIM([Pedido])) AS BIGINT) AS pedido_clean,
+            CAST(LTRIM(RTRIM([codigo_pedido])) AS VARCHAR(50)) AS pedido_clean,
             [NoPicking],
             [Remesa],
             [Fecha_Despacho],
             [Fecha_Entrega],
-            [ESTADO],
-            [Direccion_Despacho],
+            [status],
+            [direccion],
             [Ciudad_Despacho]
-        FROM [DWH_NEWSTETIC].[dbo].[Despachos_CEDI]
+        FROM [DWH_NEWSTETIC].[Logistica].[despachos_cedi]
         WHERE [Empresa] IN ('NEWSTETIC','NEW STETIC')
-          AND [Pedido] IS NOT NULL 
-          AND LTRIM(RTRIM([Pedido])) <> ''
-          AND ISNUMERIC(LTRIM(RTRIM([Pedido]))) = 1
+          AND [codigo_pedido] IS NOT NULL 
+          AND LTRIM(RTRIM([codigo_pedido])) <> ''
     ),
     grouped_data AS (
         SELECT 
             fo.f430_id_tipo_docto AS [Tipo de documento],
-            RTRIM(fo.f430_id_tipo_docto) + '-' + CONVERT(varchar(50), FORMAT(CONVERT(bigint, fo.f430_consec_docto), '00000000')) AS [Numero de pedido],
-            RTRIM(fo.f430_id_tipo_docto) + '-' + CONVERT(varchar(50), fo.f430_consec_docto) AS [Keypedido],
+            RTRIM(fo.f430_id_tipo_docto) + '-' + CONVERT(varchar(50), fo.f430_consec_docto) AS [Numero de pedido],
 
-            -- columnas que hacen que la granularidad coincida con SSMS
             CASE 
-                WHEN convert(varchar(100), cedi.Remesa) IS NULL THEN UPPER(G.Num_Guia)
+                WHEN convert(varchar(100), cedi.Remesa) IS NULL THEN ISNULL(UPPER(G.Num_Guia), '')
                 ELSE CONVERT(varchar(100), cedi.Remesa)
             END AS [Guia],
-            UPPER(G.Transportador) AS [Transportador],
+            ISNULL(UPPER(G.Transportador), '') AS [Transportador],
 
             fo.f430_fecha_ts_creacion AS [Fecha Registro de pedido],
-            maxFechaAprob.FechaAprobada AS [Fecha Preparacion de pedido],
+            fo.f430_fecha_ts_aprobacion AS [Fecha Preparacion de pedido],
             fo.f430_fecha_ts_aprob_cartera AS [Fecha aprobacion Cartera],
-            --fechainicia AS [Fecha picking],
-            MAX(s.fechaRegistro) AS [Fecha de alistamiento],
-            G.[Fecha_Despacho] AS [Fecha_Despacho],
+            
             cedi.[Fecha_Despacho] AS [Fecha de despacho de Pedido],
             cedi.[Fecha_Entrega] AS [Fecha de entrega de Pedido],
-            cedi.ESTADO AS [Estado transportadora],
+            cedi.status AS [Estado transportadora],
+            cedi.direccion AS Direccion_Despacho,
+            ISNULL(cedi.[Fecha_Despacho], '') AS "Fecha picking",
 
             CASE 
                 WHEN fo.f430_ind_estado = 0 THEN 'En elaboración'
@@ -113,27 +139,26 @@ def get_unified_orders(
                 WHEN fo.f430_ind_estado = 3 THEN 'Comprometido'
                 WHEN fo.f430_ind_estado = 4 THEN 'Cumplido'
                 WHEN fo.f430_ind_estado = 9 THEN 'Anulado'
-                WHEN fo.f430_ind_estado <> 9 AND fo.f430_ind_estado <> 4 THEN 'Pendiente'
-                WHEN fo.f430_ind_estado <> 9 THEN 'No Anulado'
+                ELSE 'Pendiente'
             END AS [Estado del documento],
 
             terc.f200_razon_social AS [Razon social cliente],
             vend.f200_razon_social AS [Razon social vendedor],
-            G.Factura AS [Numero de factura],
+            ISNULL(G.Factura, '') AS [Numero de factura],
 
             CASE 
-                WHEN UPPER(G.Transportador)='CONALCA'            THEN 'CONALCA'
-                WHEN UPPER(G.Transportador)='CONALCA BOGOTA'     THEN 'Urbano Bogota'
-                WHEN UPPER(G.Transportador)='IMD & CIA SAS'      THEN 'Urbano Medellin'
-                WHEN UPPER(G.Transportador)='IMD Y CIA SAS'      THEN 'Urbano Medellin'
-                WHEN UPPER(G.Transportador)='MEDELLIN GUSTAVO'   THEN 'Urbano Medellin'
-                WHEN UPPER(G.Transportador)='S&S ADMINISTRATION' THEN 'S&S ADMINISTRATION'
-                WHEN UPPER(G.Transportador)='TACMO SAS'          THEN 'Nacional Guarne-Bogota'
-                WHEN UPPER(G.Transportador)='TCC'                THEN 'Paqueteria excepto Bogota-Medellin'
-                WHEN UPPER(G.Transportador)='TRANSPORTADORA'     THEN 'TRANSPORTADORA'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='CONALCA' THEN 'CONALCA'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='CONALCA BOGOTA' THEN 'Urbano Bogota'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='IMD & CIA SAS' THEN 'Urbano Medellin'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='IMD Y CIA SAS' THEN 'Urbano Medellin'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='MEDELLIN GUSTAVO' THEN 'Urbano Medellin'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='S&S ADMINISTRATION' THEN 'S&S ADMINISTRATION'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='TACMO SAS' THEN 'Nacional Guarne-Bogota'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='TCC' THEN 'Paqueteria excepto Bogota-Medellin'
+                WHEN UPPER(ISNULL(G.Transportador, ''))='TRANSPORTADORA' THEN 'TRANSPORTADORA'
+                ELSE ''
             END AS [RUTA],
 
-            cedi.Direccion_Despacho AS [Direccion_Despacho],
             cedi.Ciudad_Despacho AS [Ciudad_Despacho],
 
             CASE 
@@ -146,75 +171,20 @@ def get_unified_orders(
                 ELSE 7
             END AS OrdenEstado,
 
-            f.IdMovimiento AS [numero_de_picking],
-
-            -- métricas item (si las usas en la grilla)
-            SUM(s.cantidadAduanada) AS Cantidad
+            ISNULL(f.IdMovimiento, 0) AS [numero_de_picking]
 
         FROM filtered_orders fo
         LEFT JOIN unoee.dbo.t200_mm_terceros terc ON fo.f430_rowid_tercero_fact=terc.f200_rowid
         LEFT JOIN unoee.dbo.t200_mm_terceros vend ON fo.f430_rowid_tercero_vendedor=vend.f200_rowid
-        LEFT JOIN [SGV_BKGENERICABASE1].dbo.v_wms_EPK E
-               ON fo.f430_id_tipo_docto = E.tipoDocto AND fo.f430_consec_docto = E.doctoERP
-        LEFT JOIN [SGV_BKGENERICABASE1].dbo.v_wms_clientes C ON E.item = C.item
-        LEFT JOIN SGV_BKGENERICABASE1.dbo.t_materiales_por_orden MO
-               ON CAST(MO.eaninsumo AS NVARCHAR) = CAST(E.numPedido AS NVARCHAR)
-              AND MO.color = E.tipoDocto
-        LEFT JOIN SGV_BKGENERICABASE1.dbo.T_encabezado_Prepack f ON f.consmov = MO.orden
-        LEFT JOIN SGV_BKGENERICABASE1.dbo.T_SSCCxCaja s ON s.idprepack = f.Picking
+        LEFT JOIN SGV_BKGENERICABASE1.dbo.T_encabezado_Prepack f ON fo.f430_consec_docto = CAST(f.consmov AS VARCHAR(50))
         LEFT JOIN SGV_BKGENERICABASE1.dbo.t_Guias_Generadas G ON f.IdMovimiento = G.PrepackingID
-        LEFT JOIN SGV_BKGENERICABASE1.dbo.V_WMS_Articulos A
-               ON CAST(s.EanContenido AS NVARCHAR) = CAST(A.productoEAN AS NVARCHAR)
-
-        -- Igual que SSMS: cruzar por Pedido + NoPicking
         LEFT JOIN cedi_clean cedi
-               ON cedi.pedido_clean = fo.f430_consec_docto
-              AND cedi.NoPicking   = f.IdMovimiento
+                ON CAST(cedi.pedido_clean AS VARCHAR(50)) = CAST(fo.f430_consec_docto AS VARCHAR(50))
 
-        CROSS APPLY (
-            SELECT MAX(fecha_aprobada) AS FechaAprobada
-            FROM (VALUES
-                (fo.f430_fecha_ts_aprobacion),
-                (fo.f430_fecha_ts_aprob_cart_desp),
-                (fo.f430_fecha_ts_aprob_cartera),
-                (fo.f430_fecha_ts_aprob_cupo_desp),
-                (fo.f430_fecha_ts_aprob_margen),
-                (fo.f430_fecha_ts_aprobacion_cart)
-            ) AS fechas(fecha_aprobada)
-        ) AS maxFechaAprob
-
-    WHERE 1=1
-    {f"AND upper(G.Num_Guia) LIKE '%{guia.upper()}%'" if guia else ""}
-    {f"AND terc.f200_razon_social LIKE '%{cliente}%'" if cliente else ""}
-        {f"AND UPPER(G.Transportador) LIKE '%{transportadora.upper()}%'" if transportadora else ""}
+        WHERE 1=1
+        {f"AND terc.f200_razon_social LIKE '%{cliente}%'" if cliente else ""}
         {f"AND vend.f200_razon_social LIKE '%{vendedor}%'" if vendedor else ""}
         {estado_condition}
-
-        -- MUY IMPORTANTE: la granularidad exacta (como en tu SSMS)
-        GROUP BY
-            fo.f430_id_tipo_docto,
-            fo.f430_consec_docto,
-            CASE 
-                WHEN UPPER(G.Transportador) = 'TCC' THEN UPPER(G.Num_Guia)
-                ELSE CONVERT(varchar(100), cedi.Remesa)
-            END,
-            UPPER(G.Transportador),
-            fo.f430_fecha_ts_creacion,
-            maxFechaAprob.FechaAprobada,
-            fo.f430_fecha_ts_aprob_cartera,
-            G.[Fecha_Despacho],
-            G.Num_Guia,
-            cedi.Remesa,
-            cedi.[Fecha_Despacho],
-            cedi.[Fecha_Entrega],
-            cedi.ESTADO,
-            terc.f200_razon_social,
-            vend.f200_razon_social,
-            G.Factura,
-            cedi.Direccion_Despacho,
-            cedi.Ciudad_Despacho,
-            fo.f430_ind_estado,
-            f.IdMovimiento
     )
     """
 
@@ -224,6 +194,26 @@ def get_unified_orders(
         SELECT COUNT(*) AS total_count
         FROM grouped_data;
         """
+        
+        # DEBUG: Log del query de conteo
+        import sys
+        debug_info = f"""
+╔════════════════════════════════════════════════════════════════════════════╗
+║ QUERY COUNT CONSTRUIDO                                                   ║
+╚════════════════════════════════════════════════════════════════════════════╝
+Parámetros:
+  start_date: {start_date}, end_date: {end_date}
+  guia: {guia}, cliente: {cliente}, transportadora: {transportadora}
+  pedido: {pedido}, vendedor: {vendedor}, estado: {estado}
+
+Primeros 1000 caracteres del query:
+{query[:1000]}
+...
+════════════════════════════════════════════════════════════════════════════
+"""
+        sys.stdout.write(debug_info)
+        sys.stdout.flush()
+        
         return query
 
     # Traer filas (como SSMS) + paginación si aplica
@@ -234,5 +224,25 @@ def get_unified_orders(
     """
     if limit is not None and offset is not None:
         query += f"\nOFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY"
+
+    # DEBUG: Log del query completo
+    import sys
+    debug_info = f"""
+╔════════════════════════════════════════════════════════════════════════════╗
+║ QUERY SELECT CONSTRUIDO                                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+Parámetros:
+  start_date: {start_date}, end_date: {end_date}
+  guia: {guia}, cliente: {cliente}, transportadora: {transportadora}
+  pedido: {pedido}, vendedor: {vendedor}, estado: {estado}
+  limit: {limit}, offset: {offset}
+
+Primeros 1500 caracteres del query:
+{query[:1500]}
+...
+════════════════════════════════════════════════════════════════════════════
+"""
+    sys.stdout.write(debug_info)
+    sys.stdout.flush()
 
     return query
