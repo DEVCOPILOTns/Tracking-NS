@@ -578,7 +578,7 @@ function showTraceModal(order) {
         },
         {
             titulo: 'Preparación',
-            fecha: order['Fecha Preparacion de pedido'] || order.fecha_preparacion || order.fecha_preparacion_de_pedido,
+            fecha: order.fecha_preparacion_pedido,
             icono: 'fas fa-box-open',
             descripcion: 'Pedido en preparación',
             mensajePendiente: 'Pendiente de preparación'
@@ -588,12 +588,11 @@ function showTraceModal(order) {
             fecha: order['Fecha picking'] || order.fecha_picking,
             icono: 'fas fa-people-carry',
             descripcion: 'Proceso de picking completado',
-            mensajePendiente: 'Pendiente de picking',
-            numeroPicking: order.numero_de_picking || 'No disponible'
+            mensajePendiente: 'Pendiente de picking'
         },
         {
             titulo: 'Alistamiento',
-            fecha: order['Fecha picking'] || order.fecha_picking,
+            fecha: order['Fecha de alistamiento'] || order.fecha_de_alistamiento,
             icono: 'fas fa-dolly',
             descripcion: 'Pedido alistado para despacho',
             mensajePendiente: 'Pendiente de alistamiento'
@@ -619,7 +618,7 @@ function showTraceModal(order) {
         let tieneFecha = false;
         let fecha = estado.mensajePendiente;
 
-        // Si la fecha es 'Completado' (para Picking/Alistamiento), marcar como completado
+        // Si la fecha es 'Completado', marcar como completado
         if (estado.fecha === 'Completado') {
             tieneFecha = true;
             fecha = 'Completado';
@@ -660,8 +659,6 @@ function showTraceModal(order) {
                 <div class="timeline-title">
                     <i class="${estado.icono}" style="margin-right: 8px; color: ${estadoColor}"></i>
                     ${estado.titulo}
-                    ${estado.titulo === 'Picking' && estado.numeroPicking ? `<span style="color:#00a3b4; font-weight:bold; margin-left:10px;">#${estado.numeroPicking}</span>` : ''}
-
                 </div>
                 <div class="timeline-date" style="color: ${tieneFecha ? (isActive ? '#00a3b4' : '#666') : '#ff6b6b'}">
                     ${fecha}

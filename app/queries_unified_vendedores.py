@@ -139,7 +139,7 @@ Parámetros recibidos:
             END AS "Estado del documento",
             
             fo.f430_fecha_ts_creacion AS [Fecha Registro de pedido],
-            fo.f430_fecha_ts_aprobacion AS [Fecha Preparacion de pedido],
+            fo.f430_fecha_ts_aprobacion AS [Fecha de aprobado],
             fo.f430_fecha_ts_aprob_cartera AS [Fecha aprobacion Cartera],
             
             vend.f200_razon_social AS "Razon social vendedor",
@@ -154,7 +154,8 @@ Parámetros recibidos:
             cedi.[Fecha_Entrega] AS "Fecha de entrega de Pedido",
             cedi.status AS "Estado transportadora",
             cedi.direccion AS Direccion_Despacho,
-            ISNULL(cedi.[Fecha_Despacho], '') AS "Fecha picking",
+            G.[Fecha_Despacho] AS "Fecha de alistamiento",
+            CONVERT(VARCHAR(100), MO.fechainicia, 121) AS "Fecha picking",
             
             CASE 
                 WHEN UPPER(ISNULL(G.Transportador, ''))='CONALCA' THEN 'CONALCA'
@@ -180,6 +181,17 @@ Parámetros recibidos:
         LEFT JOIN SGV_BKGENERICABASE1.dbo.T_encabezado_Prepack f ON f.consmov = MO.orden
         LEFT JOIN SGV_BKGENERICABASE1.dbo.t_Guias_Generadas G ON f.IdMovimiento = G.PrepackingID
         LEFT JOIN cedi_clean cedi ON CAST (cedi.pedido_clean AS VARCHAR(50)) = CAST(fo.f430_consec_docto AS VARCHAR(50))
+        CROSS APPLY (
+            SELECT MAX(fecha_aprobada) AS FechaAprobada
+            FROM (VALUES
+                (fo.f430_fecha_ts_aprobacion),
+                (fo.f430_fecha_ts_aprob_cart_desp),
+                (fo.f430_fecha_ts_aprob_cartera),
+                (fo.f430_fecha_ts_aprob_cupo_desp),
+                (fo.f430_fecha_ts_aprob_margen),
+                (fo.f430_fecha_ts_aprobacion_cart)
+            ) AS fechas(fecha_aprobada)
+        ) AS maxFechaAprob
         WHERE 1=1
         {f"AND terc.f200_razon_social LIKE '%{cliente}%'" if cliente else ""}
         {f"AND cedi.Remesa LIKE '%{factura}%'" if factura else ""}

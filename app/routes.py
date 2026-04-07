@@ -264,8 +264,9 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
                     'cantidad': item.get('Cantidad', ''),
                     'fecha_despacho': item.get('Fecha de despacho de Pedido') or '',
                     'fecha_picking': item.get('Fecha picking') or '',
-                    'fecha_preparacion_pedido': item.get('Fecha Preparacion de pedido') or '',
+                    'fecha_preparacion_pedido': item.get('Fecha de aprobado') or '',
                     'fecha_aprobacion_cartera': item.get('Fecha aprobacion Cartera') or '',
+                    'fecha_de_alistamiento': item.get('Fecha de alistamiento') or '',
                     'vendedor': item.get('Razon social vendedor', 'Desconocido'),
                     'estado_documento': item.get('Estado del documento', ''),
                     'fecha_registro_pedido': item.get('Fecha Registro de pedido', ''),
@@ -281,6 +282,19 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
                 }
                 
                 order_info = OrderInfo.from_dict(order_data)
+                
+                # DEBUG: Mostrar campos del modal para VENDEDORES
+                print("\n" + "▶"*50)
+                print("CAMPOS DEL MODAL - VENDEDORES")
+                print("▶"*50)
+                print(f"Pedido: {order_data.get('numero_pedido', 'N/A')}")
+                print(f"  📅 Fecha Registro: {order_info.fecha_registro_pedido or 'Vacía'}")
+                print(f"  📅 Fecha Preparación: {order_info.fecha_preparacion_pedido or 'Vacía'}")
+                print(f"  📅 Fecha Picking: {order_info.fecha_picking or 'Vacía'}")
+                print(f"  📅 Fecha Alistamiento: {order_info.fecha_de_alistamiento or 'Vacía'}")
+                print(f"  📅 Fecha Despacho (CEDI): {order_info.fecha_despacho_cedi or 'Vacía'}")
+                print("▶"*50 + "\n")
+                
                 all_combined_data.append(order_info.__dict__)
             
             return all_combined_data, total_count
@@ -335,9 +349,10 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
                     'SUBGRUPO': '',  # No está en el nuevo query
                     'Cantidad': item.get('Cantidad', ''),
                     'Fecha de despacho de Pedido': item.get('Fecha de despacho de Pedido') or '',
-                    'Fecha picking': item.get('Fecha picking') or '',
-                    'Fecha Preparacion de pedido': item.get('Fecha Preparacion de pedido') or '',
+                    'Fecha picking': item.get('Fecha picking') or '',  # IdMovimiento de picking
+                    'Fecha Preparacion de pedido': item.get('Fecha de aprobado') or '',
                     'Fecha aprobacion Cartera': item.get('Fecha aprobacion Cartera') or '',
+                    'Fecha de alistamiento': item.get('Fecha de alistamiento') or '',
                     'Razon social vendedor': item.get('Razon social vendedor', 'Desconocido'),
                     'Estado del documento': item.get('Estado del documento', ''),
                     'Fecha Registro de pedido': item.get('Fecha Registro de pedido', ''),
@@ -348,10 +363,24 @@ def fetch_combined_data(start_date=None, end_date=None, guia=None, cliente=None,
                     'Estado transportadora': item.get('Estado transportadora', ''),
                     'Ciudad_Despacho': item.get('Ciudad_Despacho', ''),
                     'Direccion_Despacho': item.get('Direccion_Despacho', ''),
-                    'numero_de_picking': item.get('numero_de_picking', 0)
+                    'numero_de_picking': item.get('numero_de_picking', 0),
+                    'fecha_despacho_cedi': item.get('Fecha de alistamiento') or ''
                 }
                 
                 order_info = OrderInfo.from_dict(order_data)
+                
+                # DEBUG: Mostrar campos del modal para DASHBOARD GENERAL
+                print("\n" + "▶"*50)
+                print("CAMPOS DEL MODAL - DASHBOARD GENERAL")
+                print("▶"*50)
+                print(f"Pedido: {order_data.get('Numero de pedido', 'N/A')}")
+                print(f"  📅 Fecha Registro: {order_info.fecha_registro_pedido or 'Vacía'}")
+                print(f"  📅 Fecha Preparación: {order_info.fecha_preparacion_pedido or 'Vacía'}")
+                print(f"  📅 Fecha Picking: {order_info.fecha_picking or 'Vacía'}")
+                print(f"  📅 Fecha Alistamiento: {order_info.fecha_de_alistamiento or 'Vacía'}")
+                print(f"  📅 Fecha Despacho (CEDI): {order_info.fecha_despacho_cedi or 'Vacía'}")
+                print("▶"*50 + "\n")
+                
                 all_combined_data.append(order_info.__dict__)
 
             return all_combined_data, total_count

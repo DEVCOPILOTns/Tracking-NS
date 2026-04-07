@@ -123,14 +123,15 @@ Parámetros recibidos:
             ISNULL(UPPER(G.Transportador), '') AS [Transportador],
 
             fo.f430_fecha_ts_creacion AS [Fecha Registro de pedido],
-            fo.f430_fecha_ts_aprobacion AS [Fecha Preparacion de pedido],
+            maxFechaAprob.FechaAprobada AS [Fecha de aprobado],
             fo.f430_fecha_ts_aprob_cartera AS [Fecha aprobacion Cartera],
             
+            G.[Fecha_Despacho] AS [Fecha de alistamiento],
             cedi.[Fecha_Despacho] AS [Fecha de despacho de Pedido],
             cedi.[Fecha_Entrega] AS [Fecha de entrega de Pedido],
             cedi.status AS [Estado transportadora],
             cedi.direccion AS Direccion_Despacho,
-            ISNULL(cedi.[Fecha_Despacho], '') AS "Fecha picking",
+            CONVERT(VARCHAR(100), mo.fechainicia, 121) AS [Fecha picking],
 
             CASE 
                 WHEN fo.f430_ind_estado = 0 THEN 'En elaboración'
@@ -176,10 +177,24 @@ Parámetros recibidos:
         FROM filtered_orders fo
         LEFT JOIN unoee.dbo.t200_mm_terceros terc ON fo.f430_rowid_tercero_fact=terc.f200_rowid
         LEFT JOIN unoee.dbo.t200_mm_terceros vend ON fo.f430_rowid_tercero_vendedor=vend.f200_rowid
-        LEFT JOIN SGV_BKGENERICABASE1.dbo.T_encabezado_Prepack f ON fo.f430_consec_docto = CAST(f.consmov AS VARCHAR(50))
+        LEFT JOIN SGV_BKGENERICABASE1.dbo.v_wms_EPK E ON fo.f430_id_tipo_docto = E.tipoDocto AND fo.f430_consec_docto = E.doctoERP
+        LEFT JOIN SGV_BKGENERICABASE1.dbo.v_wms_clientes C ON E.item = C.item
+        LEFT JOIN SGV_BKGENERICABASE1.dbo.t_materiales_por_orden MO ON CAST(MO.eaninsumo AS NVARCHAR) = CAST(E.numPedido AS NVARCHAR) AND MO.color = E.tipoDocto
+        LEFT JOIN SGV_BKGENERICABASE1.dbo.T_encabezado_Prepack f ON f.consmov = MO.orden
         LEFT JOIN SGV_BKGENERICABASE1.dbo.t_Guias_Generadas G ON f.IdMovimiento = G.PrepackingID
         LEFT JOIN cedi_clean cedi
                 ON CAST(cedi.pedido_clean AS VARCHAR(50)) = CAST(fo.f430_consec_docto AS VARCHAR(50))
+        CROSS APPLY (
+            SELECT MAX(fecha_aprobada) AS FechaAprobada
+            FROM (VALUES
+                (fo.f430_fecha_ts_aprobacion),
+                (fo.f430_fecha_ts_aprob_cart_desp),
+                (fo.f430_fecha_ts_aprob_cartera),
+                (fo.f430_fecha_ts_aprob_cupo_desp),
+                (fo.f430_fecha_ts_aprob_margen),
+                (fo.f430_fecha_ts_aprobacion_cart)
+            ) AS fechas(fecha_aprobada)
+        ) AS maxFechaAprob
 
         WHERE 1=1
         {f"AND terc.f200_razon_social LIKE '%{cliente}%'" if cliente else ""}

@@ -592,18 +592,17 @@ function showTraceModal(order) {
         },
         {
             titulo: 'Preparación',
-            fecha: order.fecha_preparacion,
+            fecha: order.fecha_preparacion_pedido,
             icono: 'fas fa-box-open',
             descripcion: 'Pedido en preparación',
             mensajePendiente: 'Pendiente de preparación'
         },
         {
             titulo: 'Picking',
-            fecha: order.fecha_picking,
+            fecha: order.fecha_picking || '',
             icono: 'fas fa-people-carry',
             descripcion: 'Proceso de picking completado',
-            mensajePendiente: 'Pendiente de picking',
-            numeroPicking: order.numero_de_picking || 'No disponible'
+            mensajePendiente: 'Pendiente de picking'
         },
         {
             titulo: 'Alistamiento',
@@ -670,8 +669,6 @@ function showTraceModal(order) {
                 <div class="timeline-title">
                     <i class="${estado.icono}" style="margin-right: 8px; color: ${estadoColor}"></i>
                     ${estado.titulo}
-                    ${estado.titulo === 'Picking' && estado.numeroPicking ? `<span style="color:#00a3b4; font-weight:bold; margin-left:10px;">#${estado.numeroPicking}</span>` : ''}
-
                 </div>
                 <div class="timeline-date" style="color: ${tieneFecha ? (isActive ? '#00a3b4' : '#666') : '#ff6b6b'}">
                     ${fecha}
